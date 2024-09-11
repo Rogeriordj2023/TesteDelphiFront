@@ -1,0 +1,144 @@
+unit uDados;
+
+interface
+
+uses
+  System.SysUtils, System.Classes, System.Net.URLClient, System.Net.HttpClient, System.Net.HttpClientComponent, Vcl.Grids,
+  System.JSON, Vcl.Dialogs;
+
+type
+  TDados = class(TObject)
+
+  private
+    { Private declarations }
+    fStringGrid: TStringGrid;
+    fHTTPClient: TNetHTTPClient;
+    procedure ClearGrid;
+  public
+    { Public declarations }
+    constructor Create(var AStringGrid:TStringGrid);
+    destructor Destroy();
+    procedure preencheGrid(strJson: String);
+
+    procedure getPessoas();
+    function putPessoa(idPessoa: integer; strBodyJson: string): Boolean;
+    function deletePessoa(idPessoa: integer): Boolean;
+    function postPessoa(strBodyJson: string): Boolean;
+  end;
+
+implementation
+
+function TDados.deletePessoa(idPessoa: integer): Boolean;
+begin
+
+end;
+
+destructor TDados.Destroy;
+begin
+  if Assigned(fHTTPClient) then
+    fHTTPClient.Free;
+end;
+
+procedure TDados.getPessoas();
+var
+  HTTPResponse: IHTTPResponse;
+  JSONValue: TJSONValue;
+  URL: string;
+begin
+  URL := 'http:\\localhost:8080/pessoa';
+  HTTPResponse := fHTTPClient.Get(URL);
+
+  if HTTPResponse.StatusCode = 200 then
+  begin
+    JSONValue := TJSONObject.ParseJSONValue(HTTPResponse.ContentAsString());
+    try
+      preencheGrid(JSONValue.ToString());
+    finally
+      JSONValue.Free;
+    end;
+  end
+  else
+  begin
+    ShowMessage('Erro na requisição: ' + HTTPResponse.StatusText);
+  end;
+end;
+
+function TDados.postPessoa(strBodyJson: string): Boolean;
+var
+  JSONArray: TJSONArray;
+  JSONObject: TJSONObject;
+  JSONValue: TJSONValue;
+  HTTPResponse: IHTTPResponse;
+  i: integer;
+  URL: string;
+begin
+  JSONObject := TJSONObject.ParseJSONValue(strBodyJson) as TJSONObject;
+
+  URL := 'http:\\localhost:8080/pessoa';
+  HTTPResponse := fHTTPClient.Post(URL, TStringStream.Create(JSONObject.ToString,
+                                         TEncoding.UTF8),
+                                        nil,
+                                        [TNameValuePair.Create('Content-Type', 'application/json')]);
+
+  Result := HTTPResponse.StatusCode = 200;
+end;
+
+procedure TDados.preencheGrid(strJson: String);
+var
+  JSONArray: TJSONArray;
+  JSONObject: TJSONObject;
+  JSONValue: TJSONValue;
+  i: integer;
+begin
+  ClearGrid();
+  JSONArray := TJSONObject.ParseJSONValue(strJson) as TJSONArray;
+
+  for i := 0 to JSONArray.Count - 1 do
+  begin
+    JSONObject := JSONArray.Items[i] as TJSONObject;
+
+    fStringGrid.Cells[0, i + 1] := JSONObject.GetValue('idpessoa').Value;
+    fStringGrid.Cells[1, i + 1] := JSONObject.GetValue('flnatureza').Value;
+    fStringGrid.Cells[2, i + 1] := JSONObject.GetValue('dsdocumento').Value;
+    fStringGrid.Cells[3, i + 1] := JSONObject.GetValue('nmprimeiro').Value;
+    fStringGrid.Cells[4, i + 1] := JSONObject.GetValue('nmsegundo').Value;
+    fStringGrid.Cells[5, i + 1] := JSONObject.GetValue('dtregistro').Value;
+    fStringGrid.Cells[6, i + 1] := JSONObject.GetValue('dsCep').Value;
+
+  end;
+
+  fStringGrid.RowCount := JSONArray.Count + 1;
+end;
+
+procedure TDados.ClearGrid();
+var
+  row: integer;
+begin
+  for row := 1 to fStringGrid.RowCount - 1 do
+  begin
+    if (fStringGrid.Cells[0, row] <> '') then
+    begin
+      fStringGrid.Cells[0, row] := '';
+      fStringGrid.Cells[2, row] := '';
+      fStringGrid.Cells[3, row] := '';
+      fStringGrid.Cells[4, row] := '';
+      fStringGrid.Cells[1, row] := '';
+      fStringGrid.Cells[6, row] := '';
+    end;
+  end;
+
+  fStringGrid.RowCount := 1;
+end;
+
+function TDados.putPessoa(idPessoa: integer; strBodyJson: string): Boolean;
+begin
+
+end;
+
+constructor TDados.Create(var AStringGrid:TStringGrid);
+begin
+  fStringGrid := AStringGrid;
+  fHTTPClient := TNetHTTPClient.Create(nil);
+end;
+
+end.

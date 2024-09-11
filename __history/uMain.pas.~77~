@@ -1,0 +1,231 @@
+unit uMain;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.Grids,
+  Vcl.Buttons, uDados, System.Net.URLClient, System.Net.HttpClient,
+  System.Net.HttpClientComponent, System.JSON;
+
+type
+  TfrmMain = class(TForm)
+    Panel1: TPanel;
+    edtnmPrimeiro: TEdit;
+    edtnmSegundo: TEdit;
+    edtNatureza: TEdit;
+    edtCep: TEdit;
+    Label1: TLabel;
+    Label2: TLabel;
+    Label3: TLabel;
+    Label4: TLabel;
+    Panel2: TPanel;
+    AStringGrid: TStringGrid;
+    Label5: TLabel;
+    edtDocumento: TEdit;
+    edtID: TEdit;
+    Label6: TLabel;
+    spdInserir: TSpeedButton;
+    spdAlterar: TSpeedButton;
+    spdExcluir: TSpeedButton;
+    spdConfirmar: TSpeedButton;
+    spdAbortar: TSpeedButton;
+    procedure FormCreate(Sender: TObject);
+    procedure AStringGridSelectCell(Sender: TObject; ACol, ARow: LongInt;
+      var CanSelect: Boolean);
+    procedure spdInserirClick(Sender: TObject);
+    procedure spdAlterarClick(Sender: TObject);
+    procedure spdConfirmarClick(Sender: TObject);
+    procedure spdAbortarClick(Sender: TObject);
+    procedure spdExcluirClick(Sender: TObject);
+  private
+    { Private declarations }
+    fRowSelected: Integer;
+    fFormState: String;
+    fDados: TDados;
+    fidPessoaSelected: Integer;
+    procedure setStatus(AStatus: String);
+
+  public
+    { Public declarations }
+  end;
+
+var
+  frmMain: TfrmMain;
+
+implementation
+
+{$R *.dfm}
+
+procedure TfrmMain.AStringGridSelectCell(Sender: TObject; ACol, ARow: LongInt; var CanSelect: Boolean);
+begin
+  fRowSelected := ARow;
+
+  if (ARow = 0) then
+  begin
+    edtnmPrimeiro.Text := '';
+    edtnmSegundo.Text  := '';
+    edtNatureza.Text   := '';
+    edtCep.Text        := '';
+    edtDocumento.Text  := '';
+    edtID.Text         := '';
+  end else
+  begin
+    edtiD.Text         := AStringGrid.Cells[0, ARow];
+    edtDocumento.Text  := AStringGrid.Cells[2, ARow];
+    edtnmPrimeiro.Text := AStringGrid.Cells[3, ARow];
+    edtnmSegundo.Text  := AStringGrid.Cells[4, ARow];
+    edtNatureza.Text   := AStringGrid.Cells[1, ARow];
+    edtCep.Text        := AStringGrid.Cells[6, ARow];
+  end;
+end;
+
+procedure TfrmMain.FormCreate(Sender: TObject);
+begin
+    fRowSelected := 0;
+    fFormState   := '';
+    setStatus(fFormState);
+    fDados := TDados.Create(AStringGrid);
+
+    AStringGrid.RowCount := 1;
+    AStringGrid.ColCount := 7;
+
+    AStringGrid.Cells[0, 0] := 'ID Pessoa';
+    AStringGrid.ColWidths[0]:= 100;
+
+    AStringGrid.Cells[1, 0] := 'Natureza';
+    AStringGrid.ColWidths[1]:= 100;
+
+    AStringGrid.Cells[2, 0] := 'Documento';
+    AStringGrid.ColWidths[2]:= 100;
+
+    AStringGrid.Cells[3, 0] := 'Nome';
+    AStringGrid.ColWidths[3]:= 100;
+
+    AStringGrid.Cells[4, 0] := 'Sobrenome';
+    AStringGrid.ColWidths[4]:= 100;
+
+    AStringGrid.Cells[5, 0] := 'Data Registro';
+    AStringGrid.ColWidths[5]:= 100;
+
+    AStringGrid.Cells[6, 0] := 'CEP';
+    AStringGrid.ColWidths[6]:= 100;
+
+    fDados.getPessoas();
+end;
+
+procedure TfrmMain.setStatus(AStatus: String);
+begin
+  if (AStatus = '') then
+  begin
+    spdAlterar.visible := true;
+    spdInserir.visible := true;
+    spdExcluir.visible := true;
+
+    spdConfirmar.visible := false;
+    spdAbortar.visible := false;
+
+    edtnmPrimeiro.ReadOnly := true;
+    edtnmSegundo.ReadOnly  := true;
+    edtNatureza.ReadOnly   := true;
+    edtCep.ReadOnly        := true;
+    edtDocumento.ReadOnly  := true;
+
+    edtnmPrimeiro.Text := '';
+    edtnmSegundo.Text  := '';
+    edtNatureza.Text   := '';
+    edtCep.Text        := '';
+    edtDocumento.Text  := '';
+    edtID.Text         := '';
+  end else
+  if (AStatus = 'updating') or (AStatus = 'inserting') then
+  begin
+    spdAlterar.visible := false;
+    spdInserir.visible := false;
+    spdExcluir.visible := false;
+
+    spdConfirmar.visible := true;
+    spdAbortar.visible := true;
+
+    edtnmPrimeiro.ReadOnly := false;
+    edtnmSegundo.ReadOnly  := false;
+    edtNatureza.ReadOnly   := false;
+    edtCep.ReadOnly        := false;
+    edtDocumento.ReadOnly  := false;
+  end else
+    raise Exception.Create('Status inválido!');
+
+  fFormState := AStatus;
+end;
+
+procedure TfrmMain.spdAbortarClick(Sender: TObject);
+begin
+  setStatus('');
+end;
+
+procedure TfrmMain.spdAlterarClick(Sender: TObject);
+begin
+  if fRowSelected = 0 then
+    Exit;
+
+  setStatus('updating');
+end;
+
+procedure TfrmMain.spdConfirmarClick(Sender: TObject);
+var
+  JSONBody: TJSONObject;
+begin
+  JSONBody := TJSONObject.Create;
+
+  try
+    JSONBody.AddPair('idpessoa', edtID.Text);
+    JSONBody.AddPair('dsdocumento', edtDocumento.Text);
+    JSONBody.AddPair('nmprimeiro', edtnmPrimeiro.Text);
+    JSONBody.AddPair('nmsegundo', edtnmSegundo.Text);
+    JSONBody.AddPair('flnatureza', edtNatureza.Text);
+    JSONBody.AddPair('dscep', edtCep.Text);
+
+    if (fFormState = 'updating') then
+    begin
+
+
+    end else
+    if (fFormState = 'inserting') then
+    begin
+      if fDados.postPessoa(JSONBody.ToString()) then
+        fDados.getPessoas();
+    end;
+  finally
+    JSONBody.free;
+  end;
+
+  setStatus('');
+end;
+
+procedure TfrmMain.spdExcluirClick(Sender: TObject);
+begin
+  if fRowSelected = 0 then
+    Exit;
+
+  if (MessageDlg('Deseja excluir o registro selecionado', mtConfirmation,
+     [mbYes, mbNo], 0, mbYes) = mrYes) then
+  begin
+    if fDados.postPessoa(JSONBody.ToString()) then
+      fDados.getPessoas();
+  end;
+end;
+
+procedure TfrmMain.spdInserirClick(Sender: TObject);
+begin
+  setStatus('inserting');
+  edtnmPrimeiro.Text := '';
+  edtnmSegundo.Text  := '';
+  edtNatureza.Text   := '';
+  edtCep.Text        := '';
+  edtDocumento.Text  := '';
+  edtID.Text         := '';
+
+  edtnmPrimeiro.SetFocus;
+end;
+
+end.
